@@ -49,6 +49,10 @@ if ($ConfigFile) {
 } elseif ($SnipeUrl) {
     $sec = Read-Host -AsSecureString 'Snipe-IT API token for the agent (low-privilege user)'
     $token = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+    $token = ($token -replace '\s', '')
+    if ($token.Length -lt 100) {
+        throw "That token is only $($token.Length) characters; Snipe-IT tokens are ~1000. In Windows PowerShell, paste with a RIGHT-CLICK (Ctrl+V types a single character)."
+    }
     $cfg = [ordered]@{
         SnipeUrl         = $SnipeUrl.TrimEnd('/')
         ApiToken         = $token
