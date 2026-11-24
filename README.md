@@ -1,4 +1,4 @@
-# Snipe-IT inventory agent (Windows and macOS)
+# Snipe-IT inventory agent (Windows, macOS, Linux)
 
 A small PowerShell sensor that runs on each Windows laptop/PC and writes its hardware
 and installed software into the matching asset in Snipe-IT
@@ -188,6 +188,48 @@ What it does:
 
 Rerun `Setup-SnipeITFields.ps1 -Apply` once first, so the new Hardware Model field is
 created. Try it on dev, check the result, then run it on production.
+
+## Installers for employees (double-click)
+
+GitHub Actions builds three installers, with the Snipe-IT URL and the agent token
+inside:
+
+| File | For | What the employee does |
+|---|---|---|
+| `SnipeIT-Agent-Setup-<ver>.exe` | Windows 10/11 | Double-click, approve the admin prompt, Next, Finish. It shows up in Apps as "WiSilica IT Inventory Agent" and can be uninstalled from there. |
+| `SnipeIT-Agent-<ver>.pkg` | macOS | Double-click and enter the Mac password. |
+| `snipeit-agent_<ver>_all.deb` | Ubuntu / Debian | Double-click to open the App Center and click Install, or run `sudo apt install ./snipeit-agent_*.deb`. |
+| `snipeit-agent-linux-<ver>.tar.gz` | Other Linux | Unpack, then `sudo ./install-linux.sh`. |
+
+All of them need admin rights on the machine. The agent runs as SYSTEM or root, so
+employees without admin rights need IT to install it.
+
+**One-time setup** (repo **Settings → Environments**): create an environment named `dev`
+and one named `production`. Add two secrets to each:
+- `SNIPEIT_URL`: `http://192.168.1.35` for dev, `https://hrms.wisilica.com/itasset` for
+  production.
+- `SNIPEIT_AGENT_TOKEN`: the inventory-agent user's token for that server.
+
+**Building:**
+1. Go to **Actions → Build installers → Run workflow**.
+2. Pick the environment.
+3. Download the three `*-<environment>` artifacts from the finished run. They are kept
+   for 7 days.
+
+The installers contain the token. Share them only inside the company (OneDrive, an
+intranet link), not publicly. If one leaks, revoke the token in Snipe-IT, update the
+secret and rebuild. Machines that already have the old token need the new installer.
+
+**Unsigned installers:** the installers aren't code-signed, so employees will see a
+warning the first time:
+- **Windows:** "Windows protected your PC". Click **More info → Run anyway**.
+- **macOS:** "cannot be opened because it is from an unidentified developer". Right-click
+  the .pkg, choose **Open**, then **Open** again. On macOS 15 and later, go to **System
+  Settings → Privacy & Security → Open Anyway** instead.
+
+To remove the warnings, sign the installers. Windows needs a code-signing certificate,
+and macOS needs an Apple Developer ID ($99/year) plus notarization. Both can be added to
+the workflow later.
 
 ## Machines that don't match
 

@@ -163,6 +163,10 @@ function parseStorage(json) {
       volumes.push((v._name || v.mount_point) + ' ' + gb(v.free_space_in_bytes) + ' GB free of ' + gb(v.size_in_bytes) + ' GB');
     }
   });
+  if (storage.length === 0 && root) {
+    // Virtual machines (and some setups) report no physical drive details.
+    storage.push('Disk ' + gb(root.size_in_bytes) + ' GB');
+  }
   return {
     storage: storage.join('; '),
     volumes: volumes.join('; '),
@@ -208,7 +212,7 @@ function formatApps(apps, maxChars) {
 // or for Intel Macs "Apple MacBook Pro (MacBookPro16,1)".
 function parseHardwareModel(json) {
   var hw = (JSON.parse(json).SPHardwareDataType || [])[0] || {};
-  var name = String(hw.machine_name || 'Mac').trim();
+  var name = String(hw.machine_name || 'Mac').replace(/^Apple\s+/, '').trim();
   var chip = String(hw.chip_type || '').replace(/^Apple\s+/, '').trim();
   if (chip) return 'Apple ' + name + ' ' + chip;
   return 'Apple ' + name + (hw.machine_model ? ' (' + hw.machine_model + ')' : '');
