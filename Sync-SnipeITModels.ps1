@@ -58,7 +58,26 @@ function Invoke-Snipe {
         $params.Body = [Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 6 -Compress))
         $params.ContentType = 'application/json; charset=utf-8'
     }
-    $resp = Invoke-WebRequest @params
+    try {
+        $resp = Invoke-WebRequest @params
+    } catch {
+        # Show what the server actually said, not just the status code.
+        $r = $_.Exception.Response
+        if (-not $r) { throw }
+        $code = [int]$r.StatusCode
+        $body = ''
+        try { $body = (New-Object IO.StreamReader($r.GetResponseStream(), [Text.Encoding]::UTF8)).ReadToEnd() } catch { }
+        $msg = $body
+        try { $j = $body | ConvertFrom-Json; if ($j.messages) { $msg = ($j.messages | ConvertTo-Json -Compress -Depth 4) } elseif ($j.message) { $msg = $j.message } } catch { }
+        $msg = ($msg -replace '<[^>]+>', ' ' -replace '\s+', ' ').Trim()
+        if ($msg.Length -gt 300) { $msg = $msg.Substring(0, 300) + '...' }
+        $hint = switch ($code) {
+            401 { ' (token wrong, revoked, cut off when pasted, or from another server)' }
+            403 { ' (the token''s user lacks permission for this; use an admin/superuser token)' }
+            default { '' }
+        }
+        throw "HTTP $code on $Method $Path$hint. Server said: $msg"
+    }
     $reader = New-Object IO.StreamReader($resp.RawContentStream, [Text.Encoding]::UTF8)
     $result = $reader.ReadToEnd() | ConvertFrom-Json
     if ($result.PSObject.Properties.Name -contains 'status' -and $result.status -eq 'error') {
