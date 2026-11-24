@@ -14,7 +14,7 @@
     Must be run as Administrator. Safe to rerun: it upgrades the script and task in place.
 
 .EXAMPLE
-    # Interactive: prompts for the token without echoing it
+    # Interactive: copy the agent token in Snipe-IT first; it is read from the clipboard
     .\Install-Agent.ps1 -SnipeUrl https://hrms.wisilica.com/itasset
 
 .EXAMPLE
@@ -69,7 +69,7 @@ if ($ConfigFile) {
     }
     [IO.File]::WriteAllText($configPath, ($cfg | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
 } elseif (-not (Test-Path $configPath)) {
-    throw 'Pass -SnipeUrl (prompts for the token) or -ConfigFile <path to config.json>.'
+    throw 'Pass -SnipeUrl (token from clipboard) or -ConfigFile <path to config.json>.'
 }
 
 if ($AssetTag -and $ConfigFile) {

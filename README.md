@@ -117,7 +117,7 @@ powershell -ExecutionPolicy Bypass -File .\SnipeIT-Agent.ps1 -DryRun
 Then install it on that one laptop from an elevated PowerShell:
 
 ```powershell
-.\Install-Agent.ps1 -SnipeUrl https://hrms.wisilica.com/itasset   # prompts for the agent token
+.\Install-Agent.ps1 -SnipeUrl https://hrms.wisilica.com/itasset   # copy the agent token in Snipe-IT first; it is read from the clipboard
 Get-Content C:\ProgramData\SnipeITAgent\agent.log -Tail 20
 ```
 
