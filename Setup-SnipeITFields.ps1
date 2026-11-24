@@ -182,16 +182,33 @@ if ($modelsWithout.Count -gt 0 -and -not $ourSet) {
 }
 
 # 4. Give models without a fieldset our fieldset ----------------------------
+$failed = @()
 foreach ($m in $modelsWithout) {
     if ($Apply) {
-        $null = Invoke-Snipe PATCH "models/$($m.id)" @{ fieldset_id = [int]$ourSet.id }
-        Write-Host "  model '$($m.name)' -> fieldset '$FieldsetName'" -ForegroundColor Green
+        try {
+            $null = Invoke-Snipe PATCH "models/$($m.id)" @{ fieldset_id = [int]$ourSet.id }
+            Write-Host "  model '$($m.name)' -> fieldset '$FieldsetName'" -ForegroundColor Green
+        } catch {
+            # e.g. duplicate name + model number: Snipe-IT re-validates the whole model on save.
+            $failed += [pscustomobject]@{ Id = $m.id; Name = $m.name; Error = $_.Exception.Message }
+            Write-Host "  FAILED model '$($m.name)' (id $($m.id)), skipped" -ForegroundColor Red
+        }
     } else {
         Write-Host "  would set model '$($m.name)' ($($m.category.name)) -> fieldset '$FieldsetName'" -ForegroundColor Yellow
     }
 }
 foreach ($m in ($models | Where-Object { $_.fieldset -and $_.fieldset.id })) {
     Write-Host "  model '$($m.name)' keeps its fieldset '$($m.fieldset.name)' (fields added there)"
+}
+
+if ($failed.Count -gt 0) {
+    Write-Host "`n$($failed.Count) model(s) could not be updated. Assets of these models won't get inventory fields:" -ForegroundColor Red
+    foreach ($f in $failed) {
+        Write-Host ("  id {0}  '{1}'`n      {2}" -f $f.Id, $f.Name, ($f.Error -replace '^.*? : ', ''))
+    }
+    Write-Host "  'must be unique' means another model has the same name and model number." -ForegroundColor Yellow
+    Write-Host "  Fix it in Snipe-IT (Settings > Asset Models > id N): give it a different model number, or move" -ForegroundColor Yellow
+    Write-Host "  its assets to the other model and delete it. Then rerun this script; finished steps are skipped." -ForegroundColor Yellow
 }
 
 Write-Host "`nDone. $mode" -ForegroundColor Cyan
