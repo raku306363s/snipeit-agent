@@ -421,7 +421,7 @@ try {
         Write-Log "No Snipe-IT asset found for serial '$($inv.Serial)'$(if ($ConfigAssetTag) { " or tag '$ConfigAssetTag'" }). Add the serial to the asset in Snipe-IT." 'WARN'
         exit 2
     }
-    Write-Log "Matched asset id=$($asset.id) tag=$($asset.asset_tag) name=$($asset.name)"
+    Write-Log "Matched asset id=$($asset.id) tag=$($asset.asset_tag) name=$($asset.name) on $SnipeUrl"
 
     # Map our field names to this asset's DB columns using the asset's own custom_fields
     # block. This only needs "view assets" permission, not access to the fields API.

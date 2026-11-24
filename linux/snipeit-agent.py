@@ -432,7 +432,7 @@ def main(argv):
             log("No Snipe-IT asset found for serial '%s'%s. Add the serial to the asset in Snipe-IT."
                 % (inv["Serial"], " or tag '%s'" % cfg["AssetTag"] if cfg.get("AssetTag") else ""), "WARN")
             return 2
-        log("Matched asset id=%s tag=%s name=%s" % (asset.get("id"), asset.get("asset_tag"), asset.get("name") or ""))
+        log("Matched asset id=%s tag=%s name=%s on %s" % (asset.get("id"), asset.get("asset_tag"), asset.get("name") or "", cfg["SnipeUrl"]))
         payload, changed, pending, missing = build_payload(asset, inv, names, float(cfg.get("HeartbeatDays") or 7),
                                                            datetime.datetime.now())
         if missing:

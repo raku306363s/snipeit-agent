@@ -449,7 +449,7 @@ function main(argv) {
         '. Add the serial to the asset in Snipe-IT.', 'WARN');
       return 2;
     }
-    log('Matched asset id=' + asset.id + ' tag=' + asset.asset_tag + ' name=' + (asset.name || ''));
+    log('Matched asset id=' + asset.id + ' tag=' + asset.asset_tag + ' name=' + (asset.name || '') + ' on ' + cfg.SnipeUrl);
 
     var plan = buildPayload(asset, inv, fieldNames, cfg.HeartbeatDays, new Date());
     if (plan.missing.length) {
