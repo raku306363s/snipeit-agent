@@ -41,6 +41,9 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+# Repair installs made by v1.0, whose file permissions locked everyone out.
+& takeown.exe /F $InstallDir /R /A /D Y 2>&1 | Out-Null
+& icacls.exe $InstallDir /reset /T /Q 2>&1 | Out-Null
 Copy-Item -Path (Join-Path $Here 'SnipeIT-Agent.ps1') -Destination $InstallDir -Force
 
 $configPath = Join-Path $InstallDir 'config.json'
@@ -72,7 +75,11 @@ if ($AssetTag -and $ConfigFile) {
 }
 
 # Only SYSTEM and Administrators may read the folder (protects the API token).
-& icacls.exe $InstallDir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /T /Q | Out-Null
+# Set it on the folder only, then make every file inherit from it. (Applying the
+# inheritable grant to files with /T leaves them with no access at all.)
+& icacls.exe $InstallDir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /Q | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "icacls failed to set folder permissions ($LASTEXITCODE)" }
+& icacls.exe (Join-Path $InstallDir '*') /reset /T /Q | Out-Null
 
 $psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $action = New-ScheduledTaskAction -Execute $psExe `
