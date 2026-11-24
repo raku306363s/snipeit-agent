@@ -50,11 +50,15 @@ $configPath = Join-Path $InstallDir 'config.json'
 if ($ConfigFile) {
     Copy-Item -Path $ConfigFile -Destination $configPath -Force
 } elseif ($SnipeUrl) {
-    $sec = Read-Host -AsSecureString 'Snipe-IT API token for the agent (low-privilege user)'
-    $token = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
-    $token = ($token -replace '\s', '')
-    if ($token.Length -lt 100) {
-        throw "That token is only $($token.Length) characters; Snipe-IT tokens are ~1000. In Windows PowerShell, paste with a RIGHT-CLICK (Ctrl+V types a single character)."
+    # The console truncates long pastes into Read-Host, and Snipe-IT tokens are ~1000
+    # characters, so take the token from the clipboard: copy it in Snipe-IT, then run this.
+    $token = ''
+    try { $token = ((Get-Clipboard -Raw) -replace '\s', '') } catch { }
+    if ($token.Length -ge 100 -and $token -match '^[A-Za-z0-9._-]+$') {
+        Write-Host "Using the API token from the clipboard ($($token.Length) characters). Clearing the clipboard."
+        try { Set-Clipboard -Value ' ' } catch { }
+    } else {
+        throw 'Copy the agent API token in Snipe-IT (Manage API Keys) so it is on the clipboard, then run this again.'
     }
     $cfg = [ordered]@{
         SnipeUrl         = $SnipeUrl.TrimEnd('/')
@@ -72,6 +76,19 @@ if ($AssetTag -and $ConfigFile) {
     $cfg = Get-Content $configPath -Raw | ConvertFrom-Json
     $cfg | Add-Member -NotePropertyName AssetTag -NotePropertyValue $AssetTag -Force
     [IO.File]::WriteAllText($configPath, ($cfg | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
+}
+
+# Check the URL and token work before going further.
+try {
+    $c = Get-Content $configPath -Raw | ConvertFrom-Json
+    if ($PSVersionTable.PSVersion.Major -lt 6) {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    }
+    $null = Invoke-WebRequest -UseBasicParsing -TimeoutSec 30 -Uri "$($c.SnipeUrl.TrimEnd('/'))/api/v1/hardware?limit=1" `
+        -Headers @{ Authorization = "Bearer $($c.ApiToken)"; Accept = 'application/json' }
+    Write-Host "API check OK: $($c.SnipeUrl) accepted the token." -ForegroundColor Green
+} catch {
+    Write-Warning "API check failed: $($_.Exception.Message). 401 = token wrong/revoked/truncated, 403 = user lacks Assets View. Installing anyway."
 }
 
 # Only SYSTEM and Administrators may read the folder (protects the API token).
