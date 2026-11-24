@@ -22,6 +22,7 @@ var AGENT_VERSION = '1.0.0';
 var DEFAULT_DIR = '/Library/Application Support/SnipeITAgent';
 
 var FIELD_NAMES = {
+  HardwareModel: 'Hardware Model',
   Hostname: 'Hostname',
   CPU: 'CPU',
   RamGB: 'RAM (GB)',
@@ -203,6 +204,16 @@ function formatApps(apps, maxChars) {
   return text;
 }
 
+// system_profiler SPHardwareDataType -json -> "Apple MacBook Pro M1 Pro", "Apple Mac mini M4",
+// or for Intel Macs "Apple MacBook Pro (MacBookPro16,1)".
+function parseHardwareModel(json) {
+  var hw = (JSON.parse(json).SPHardwareDataType || [])[0] || {};
+  var name = String(hw.machine_name || 'Mac').trim();
+  var chip = String(hw.chip_type || '').replace(/^Apple\s+/, '').trim();
+  if (chip) return 'Apple ' + name + ' ' + chip;
+  return 'Apple ' + name + (hw.machine_model ? ' (' + hw.machine_model + ')' : '');
+}
+
 function htmlDecode(s) {
   return String(s)
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
@@ -266,6 +277,11 @@ function collect(cfg) {
   inv.Serial = parseSerial(trySh('/usr/sbin/ioreg -rd1 -c IOPlatformExpertDevice'));
   inv.Hostname = trySh('/usr/sbin/scutil --get ComputerName') || trySh('/bin/hostname -s');
   inv.Model = trySh('/usr/sbin/sysctl -n hw.model');
+  try {
+    inv.HardwareModel = parseHardwareModel(platform.sh('/usr/sbin/system_profiler -json SPHardwareDataType'));
+  } catch (e) {
+    inv.HardwareModel = inv.Model ? 'Apple ' + inv.Model : '';
+  }
   inv.CPU = trySh('/usr/sbin/sysctl -n machdep.cpu.brand_string').replace(/\s+/g, ' ');
   var mem = trySh('/usr/sbin/sysctl -n hw.memsize');
   inv.RamGB = mem ? String(Math.round(Number(mem) / 1073741824)) : '';
@@ -406,7 +422,7 @@ function main(argv) {
   try {
     log('Snipe-IT agent ' + AGENT_VERSION + ' (macOS) starting' + (dryRun ? ' (dry run)' : ''));
     var inv = collect(cfg);
-    log('Collected: serial=' + inv.Serial + ', model=' + inv.Model + ', RAM=' + inv.RamGB + ' GB, apps=' + inv.SoftwareCount);
+    log('Collected: serial=' + inv.Serial + ', model=' + inv.HardwareModel + ', RAM=' + inv.RamGB + ' GB, apps=' + inv.SoftwareCount);
     try {
       var copy = {};
       Object.keys(inv).forEach(function (k) { if (k !== 'Software') copy[k] = inv[k]; });
@@ -463,7 +479,7 @@ function run(argv) { // called by osascript
   if (code) platform.exit(code);
 }
 if (!IS_JXA && typeof module !== 'undefined') {
-  module.exports = { parseSerial: parseSerial, parseStorage: parseStorage, parseApps: parseApps, formatApps: formatApps,
+  module.exports = { parseSerial: parseSerial, parseHardwareModel: parseHardwareModel, parseStorage: parseStorage, parseApps: parseApps, formatApps: formatApps,
     buildPayload: buildPayload, normalize: normalize, main: main };
   if (require.main === module) process.exit(main(process.argv.slice(2)));
 }

@@ -40,6 +40,8 @@ can sort by it to find machines whose agent has stopped reporting.
 | `SnipeIT-Agent.ps1` | Every laptop (as SYSTEM) | Collects and pushes the inventory. `-DryRun` to just look. |
 | `Install-Agent.ps1` | Every laptop (as admin) | Copies the agent to `C:\ProgramData\SnipeITAgent`, writes config, locks the folder, registers the scheduled task. |
 | `Uninstall-Agent.ps1` | Laptop | Removes the task and folder. |
+| `Sync-SnipeITModels.ps1` | Admin, after rollout | Moves assets to correct models based on the reported hardware model. Dry run by default. |
+| `macos/` | Macs | macOS agent, installer, uninstaller. |
 | `config.example.json` | | Template for mass rollout. |
 
 ## Test on the dev clone first
@@ -159,6 +161,33 @@ On Macs the fields hold:
 - **Installed Software**: everything in `/Applications` and `~/Applications`.
 
 To remove it, run `sudo ./uninstall-mac.sh`.
+
+## Clean up asset models (after the agents have reported)
+
+Each agent writes the device's real make and model into the **Hardware Model** field,
+for example "Dell Inspiron 15 3567", "Lenovo ideapad 330-15IKB" or "Apple Mac mini M4".
+Custom-built PCs report their motherboard, for example "ASUS H170M-PLUS".
+`Sync-SnipeITModels.ps1` uses that field to fix models like "Insprion" (83 assets),
+"IDEAPAD 330" / "IDEAIPAD 330", or "x":
+
+```powershell
+.\Sync-SnipeITModels.ps1 -SnipeUrl http://192.168.1.35                       # plan only, writes model-cleanup-plan.csv
+.\Sync-SnipeITModels.ps1 -SnipeUrl http://192.168.1.35 -Apply -DeleteEmpty   # move assets, delete emptied models
+```
+
+What it does:
+- **Moves each asset to the right model.** It reuses an existing model with the same
+  name, ignoring case and spaces. If none exists, it creates one with the right
+  manufacturer and the Inventory Agent fieldset.
+- **Leaves assets without agent data alone.** You can run it again as more machines
+  report.
+- **Deletes models this run emptied,** but only with `-DeleteEmpty`. Snipe-IT refuses to
+  delete a model that still has assets, so nothing in use is lost.
+- **Writes a CSV.** It lists every planned move, and after `-Apply` the result of each
+  one.
+
+Rerun `Setup-SnipeITFields.ps1 -Apply` once first, so the new Hardware Model field is
+created. Try it on dev, check the result, then run it on production.
 
 ## Machines that don't match
 

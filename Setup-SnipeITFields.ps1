@@ -53,6 +53,7 @@ if (-not $Token) {
 
 # Must match the defaults in SnipeIT-Agent.ps1 (or the FieldNames override in config.json).
 $Fields = @(
+    @{ name = 'Hardware Model';       element = 'text';     help = 'Manufacturer and model as reported by the device' }
     @{ name = 'Hostname';             element = 'text';     help = 'Computer name reported by the agent' }
     @{ name = 'CPU';                  element = 'text';     help = 'Processor model' }
     @{ name = 'RAM (GB)';             element = 'text';     help = 'Installed memory in GB' }

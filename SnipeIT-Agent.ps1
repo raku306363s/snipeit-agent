@@ -61,6 +61,7 @@ function Write-Log {
 # Config
 # ---------------------------------------------------------------------------
 $DefaultFieldNames = [ordered]@{
+    HardwareModel = 'Hardware Model'
     Hostname      = 'Hostname'
     CPU           = 'CPU'
     RamGB         = 'RAM (GB)'
@@ -214,6 +215,47 @@ function Get-InstalledSoftware {
     return @($apps | Sort-Object Name, Version)
 }
 
+function Get-CleanManufacturer([string]$Name) {
+    $n = ($Name -replace '\s+', ' ').Trim()
+    switch -Regex ($n) {
+        '^Dell'                  { return 'Dell' }
+        '^LENOVO'                { return 'Lenovo' }
+        '^(HP|Hewlett)'          { return 'HP' }
+        '^ASUS'                  { return 'ASUS' }
+        '^Acer'                  { return 'Acer' }
+        '^TOSHIBA|^Dynabook'     { return 'Toshiba' }
+        '^Micro-Star|^MSI'       { return 'MSI' }
+        '^Gigabyte'              { return 'Gigabyte' }
+        '^Intel'                 { return 'Intel' }
+        '^Microsoft'             { return 'Microsoft' }
+        '^Samsung'               { return 'Samsung' }
+        '^Apple'                 { return 'Apple' }
+    }
+    return ($n -replace ',?\s+(Inc\.?|Corporation|Corp\.?|Co\.,? ?Ltd\.?|Ltd\.?|Technology|COMPUTER INC\.?)\b.*$', '').Trim()
+}
+
+# "Manufacturer Model" as the vendor markets it, e.g. "Dell Vostro 15 3510", "Lenovo ideapad 330-15IKB",
+# "ASUS H170M-PLUS" (custom-built PCs report the motherboard).
+function Get-HardwareModel($cs) {
+    $junk = '^(System Product Name|System manufacturer|To be filled by O\.E\.M\.|Default string|Not Applicable|None|)$'
+    $mfr = [string]$cs.Manufacturer
+    $model = [string]$cs.Model
+    if ($mfr -match '^LENOVO') {
+        # Lenovo puts the machine type (81DE) in Model and the marketing name in Version.
+        $v = [string](Get-CimInstance Win32_ComputerSystemProduct).Version
+        if ($v -and $v -notmatch $junk) { $model = $v }
+    }
+    if ($model.Trim() -match $junk -or $mfr.Trim() -match $junk) {
+        $bb = Get-CimInstance Win32_BaseBoard
+        $mfr = [string]$bb.Manufacturer
+        $model = [string]$bb.Product
+    }
+    $mfr = Get-CleanManufacturer $mfr
+    $model = ($model -replace '\s+', ' ').Trim()
+    if ($model -match "^$([regex]::Escape($mfr))\s+(.*)$") { $model = $Matches[1] }   # "HP HP Pavilion" -> "HP Pavilion"
+    return ("$mfr $model").Trim()
+}
+
 function Get-Inventory {
     $cs  = Get-CimInstance Win32_ComputerSystem
     $os  = Get-CimInstance Win32_OperatingSystem
@@ -250,6 +292,7 @@ function Get-Inventory {
         Serial        = Get-Safe { Get-SerialNumber }
         Manufacturer  = [string]$cs.Manufacturer
         Model         = [string]$cs.Model
+        HardwareModel = [string](Get-Safe { Get-HardwareModel $cs } '')
         Hostname      = [string]$env:COMPUTERNAME
         CPU           = (([string]$cpu.Name) -replace '\s+', ' ').Trim()
         RamGB         = [string](Format-GB $ramBytes)
@@ -336,7 +379,7 @@ try {
 
     Write-Log "Snipe-IT agent $AgentVersion starting on $env:COMPUTERNAME$(if ($DryRun) { ' (dry run)' })"
     $inv = Get-Inventory
-    Write-Log ("Collected: serial={0}, model={1} {2}, RAM={3} GB, apps={4}" -f $inv.Serial, $inv.Manufacturer, $inv.Model, $inv.RamGB, $inv.SoftwareCount)
+    Write-Log ("Collected: serial={0}, model={1}, RAM={2} GB, apps={3}" -f $inv.Serial, $inv.HardwareModel, $inv.RamGB, $inv.SoftwareCount)
 
     # Keep a local copy for troubleshooting.
     try {
