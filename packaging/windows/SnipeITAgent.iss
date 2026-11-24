@@ -38,7 +38,8 @@ WelcomeLabel2=This installs the IT inventory agent, which reports this computer'
 Source: "..\..\SnipeIT-Agent.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\Install-Agent.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\Uninstall-Agent.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#ConfigFile}"; DestDir: "{tmp}"; DestName: "config.json"; Flags: deleteafterinstall
+; Copied to {app} only for the install step below, then deleted right away.
+Source: "{#ConfigFile}"; DestDir: "{app}"; DestName: "config.json"; Flags: ignoreversion
 
 [UninstallRun]
 Filename: "{sysnative}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Uninstall-Agent.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "RemoveAgent"
@@ -52,10 +53,11 @@ begin
   if CurStep = ssPostInstall then
   begin
     Params := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\Install-Agent.ps1') +
-              '" -ConfigFile "' + ExpandConstant('{tmp}\config.json') + '"';
+              '" -ConfigFile "' + ExpandConstant('{app}\config.json') + '"';
     if (not Exec(ExpandConstant('{sysnative}\WindowsPowerShell\v1.0\powershell.exe'), Params, '',
                  SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
       MsgBox('The inventory agent could not be set up (error ' + IntToStr(ResultCode) + '). Please contact IT.',
              mbError, MB_OK);
+    DeleteFile(ExpandConstant('{app}\config.json'));
   end;
 end;

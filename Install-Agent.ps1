@@ -41,6 +41,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+try { Start-Transcript -Path (Join-Path $env:ProgramData 'SnipeITAgent-install.log') -Append | Out-Null } catch { }
 # Repair installs made by v1.0, whose file permissions locked everyone out.
 & takeown.exe /F $InstallDir /R /A /D Y 2>&1 | Out-Null
 & icacls.exe $InstallDir /reset /T /Q 2>&1 | Out-Null
@@ -48,6 +49,8 @@ Copy-Item -Path (Join-Path $Here 'SnipeIT-Agent.ps1') -Destination $InstallDir -
 
 $configPath = Join-Path $InstallDir 'config.json'
 if ($ConfigFile) {
+    if (-not (Test-Path $ConfigFile)) { throw "Config file not found: $ConfigFile" }
+    if (Test-Path $configPath) { Remove-Item $configPath -Force }
     Copy-Item -Path $ConfigFile -Destination $configPath -Force
 } elseif ($SnipeUrl) {
     # The console truncates long pastes into Read-Host, and Snipe-IT tokens are ~1000
@@ -78,6 +81,7 @@ if ($AssetTag -and $ConfigFile) {
     [IO.File]::WriteAllText($configPath, ($cfg | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
 }
 
+Write-Host "Config: agent will report to $((Get-Content $configPath -Raw | ConvertFrom-Json).SnipeUrl)"
 # Check the URL and token work before going further.
 try {
     $c = Get-Content $configPath -Raw | ConvertFrom-Json
