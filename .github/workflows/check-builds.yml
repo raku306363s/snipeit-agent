@@ -1,0 +1,57 @@
+# Builds all three installers with a dummy config on every push, to catch packaging
+# breakage. These test packages are not uploaded and contain no real token.
+name: Check installer builds
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  SNIPEIT_URL: http://example.invalid
+  SNIPEIT_AGENT_TOKEN: dummy-token-for-build-checks-0000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python packaging/make-config.py "$env:RUNNER_TEMP\config.json"
+      - name: Parse the PowerShell scripts
+        run: |
+          $bad = 0
+          Get-ChildItem *.ps1 | ForEach-Object {
+            $errs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errs)
+            if ($errs) { $bad++; $errs | ForEach-Object { Write-Host "$($_.Extent.File):$($_.Extent.StartLineNumber) $($_.Message)" } }
+          }
+          if ($bad) { exit 1 }
+      - name: Agent dry run on the runner
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File SnipeIT-Agent.ps1 -DryRun -ConfigPath "$env:RUNNER_TEMP\none.json" | Select-Object -First 25
+      - run: choco install innosetup --no-progress -y
+      - working-directory: packaging/windows
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DConfigFile=$env:RUNNER_TEMP\config.json" "/DOutputDir=$env:RUNNER_TEMP\out" SnipeITAgent.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 packaging/make-config.py "$RUNNER_TEMP/config.json"
+      - run: osacompile -l JavaScript -o "$RUNNER_TEMP/check.scpt" macos/snipeit-agent.js
+      - name: Agent dry run on the runner
+        run: sudo osascript -l JavaScript macos/snipeit-agent.js --dry-run --config "$RUNNER_TEMP/none.json" 2>&1 | head -25
+      - run: packaging/macos/build-pkg.sh "$RUNNER_TEMP/config.json" 0.0.0 "$RUNNER_TEMP/out"
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 packaging/make-config.py "$RUNNER_TEMP/config.json"
+      - name: Agent dry run on the runner
+        run: sudo python3 linux/snipeit-agent.py --dry-run --config "$RUNNER_TEMP/none.json" | head -25
+      - run: packaging/linux/build-deb.sh "$RUNNER_TEMP/config.json" 0.0.0 "$RUNNER_TEMP/out"

@@ -1,0 +1,88 @@
+# Builds the employee installers with the Snipe-IT URL and agent token baked in.
+#
+# One-time setup (repo Settings > Environments): create environments "dev" and
+# "production", each with two secrets:
+#   SNIPEIT_URL          e.g. http://192.168.1.35   or https://hrms.wisilica.com/itasset
+#   SNIPEIT_AGENT_TOKEN  the inventory-agent user's API token
+#
+# Then: Actions > Build installers > Run workflow > pick the environment.
+# Download the "installers-<env>" artifact (kept 7 days). It contains the token,
+# so share it only inside the company.
+name: Build installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which Snipe-IT the installers report to
+        type: choice
+        options: [dev, production]
+        default: dev
+      version:
+        description: Version number shown in the installers
+        default: 1.0.0
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write config
+        env:
+          SNIPEIT_URL: ${{ secrets.SNIPEIT_URL }}
+          SNIPEIT_AGENT_TOKEN: ${{ secrets.SNIPEIT_AGENT_TOKEN }}
+        run: python packaging/make-config.py "$env:RUNNER_TEMP\config.json"
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Build setup.exe
+        working-directory: packaging/windows
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ inputs.version }}" "/DConfigFile=$env:RUNNER_TEMP\config.json" "/DOutputDir=$env:GITHUB_WORKSPACE\out" SnipeITAgent.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ inputs.environment }}
+          path: out/*.exe
+          retention-days: 7
+
+  macos:
+    runs-on: macos-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write config
+        env:
+          SNIPEIT_URL: ${{ secrets.SNIPEIT_URL }}
+          SNIPEIT_AGENT_TOKEN: ${{ secrets.SNIPEIT_AGENT_TOKEN }}
+        run: python3 packaging/make-config.py "$RUNNER_TEMP/config.json"
+      - name: Check the agent compiles
+        run: osacompile -l JavaScript -o "$RUNNER_TEMP/check.scpt" macos/snipeit-agent.js
+      - name: Build .pkg
+        run: packaging/macos/build-pkg.sh "$RUNNER_TEMP/config.json" "${{ inputs.version }}" out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ inputs.environment }}
+          path: out/*.pkg
+          retention-days: 7
+
+  linux:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write config
+        env:
+          SNIPEIT_URL: ${{ secrets.SNIPEIT_URL }}
+          SNIPEIT_AGENT_TOKEN: ${{ secrets.SNIPEIT_AGENT_TOKEN }}
+        run: python3 packaging/make-config.py "$RUNNER_TEMP/config.json"
+      - name: Build .deb and .tar.gz
+        run: packaging/linux/build-deb.sh "$RUNNER_TEMP/config.json" "${{ inputs.version }}" out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ inputs.environment }}
+          path: out/*
+          retention-days: 7
