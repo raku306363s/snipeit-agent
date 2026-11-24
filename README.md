@@ -1,4 +1,4 @@
-# Snipe-IT inventory agent (Windows)
+# Snipe-IT inventory agent (Windows and macOS)
 
 A small PowerShell sensor that runs on each Windows laptop/PC and writes its hardware
 and installed software into the matching asset in Snipe-IT
@@ -136,6 +136,30 @@ the scripts, on a share only Domain Computers / admins can read. Then pick one:
 The task runs as SYSTEM 10 minutes after boot and daily at 11:00 (+ up to 2 hours random
 delay, catches up if the laptop was off).
 
+## macOS agent
+
+`macos/snipeit-agent.js` fills the same fields on Macs (MacBook, Mac mini), matched by
+the Mac's serial number (Apple menu → About This Mac). It's written in JavaScript for
+Automation, which is built into macOS, so nothing else needs installing. It runs as a
+root launchd daemon at boot and daily at 11:00, with up to 2 hours of random delay.
+
+```bash
+# copy the macos folder to the Mac, then in Terminal:
+cd ~/Downloads/snipeit-agent-main/macos
+sudo osascript -l JavaScript snipeit-agent.js --dry-run --config /tmp/none.json   # collect only, shows the data
+sudo ./install-mac.sh --url http://192.168.1.35                                     # asks for the agent token
+sudo tail -20 "/Library/Application Support/SnipeITAgent/agent.log"
+```
+
+On Macs the fields hold:
+- **CPU**: the chip, for example "Apple M1 Pro".
+- **Storage**: the internal SSD in decimal GB, as Apple reports it.
+- **Disk Free C: (GB)**: free space on the startup disk. The field name is shared with
+  Windows.
+- **Installed Software**: everything in `/Applications` and `~/Applications`.
+
+To remove it, run `sudo ./uninstall-mac.sh`.
+
 ## Machines that don't match
 
 The agent matches on serial. If it logs `No Snipe-IT asset found for serial ...`:
@@ -166,7 +190,7 @@ To list the laptops that never reported: in Snipe-IT's asset list, show the
 
 | Option | Pros | Cons |
 |---|---|---|
-| **This script** (chosen) | Nothing new to host, uses Snipe-IT directly, easy to read and change, data shows on the asset page | Software list is text, not a searchable license table; Windows only for now |
+| **This script** (chosen) | Nothing new to host, uses Snipe-IT directly, easy to read and change, data shows on the asset page | Software list is text, not a searchable license table |
 | GLPI Agent / OCS Inventory + sync to Snipe-IT | Rich inventory (software as records, Linux/macOS agents, monitors, peripherals) | Needs a second server (GLPI/OCS) plus a sync job to maintain |
 | Intune / RMM inventory + sync | Already collected if you use Intune | Needs Graph API sync script; only for Intune-enrolled devices |
 
