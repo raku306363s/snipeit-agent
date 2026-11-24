@@ -1,0 +1,7 @@
+{
+  "SnipeUrl": "https://hrms.wisilica.com/itasset",
+  "ApiToken": "PASTE-THE-AGENT-USER-TOKEN-HERE",
+  "HeartbeatDays": 7,
+  "MaxSoftwareChars": 60000,
+  "AssetTag": ""
+}
