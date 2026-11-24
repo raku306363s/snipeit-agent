@@ -45,15 +45,17 @@ can sort by it to find machines whose agent has stopped reporting.
 ## Test on the dev clone first
 
 Everything below should be done first against the dev clone (Proxmox CT 110
-`snipeitdev`, 192.168.1.18), then repeated on production once it looks right. Wherever
-the steps say `https://hrms.wisilica.com/itasset`, use the dev URL instead, for example
-`http://192.168.1.18/itasset` (whatever path the dev web server serves Snipe-IT on).
+`snipeitdev`, reachable at `http://192.168.1.35`), then repeated on production once it
+looks right. Wherever the steps say `https://hrms.wisilica.com/itasset`, use
+`http://192.168.1.35` instead. On dev, Apache serves Snipe-IT from the web root
+(`/var/www/snipe-it/public`), so there is no `/itasset` path.
 
 Before using the clone, on `snipeitdev`:
 
 1. **Point it at itself.** The clone still has `APP_URL=https://hrms.wisilica.com/itasset`
-   in `/var/www/snipe-it/.env` (or wherever Snipe-IT lives). Change it to the dev URL,
-   then `php artisan config:clear`. Otherwise the web UI redirects you to production.
+   in `/var/www/snipe-it/.env`. Change it to `http://192.168.1.35`, then
+   `sudo -u www-data php artisan config:clear`. Otherwise the web UI redirects you to
+   production.
 2. **Stop it emailing real people.** Set `MAIL_MAILER=log` (older versions:
    `MAIL_DRIVER=log`) in `.env`, so checkout/expiry alerts from the copy don't reach staff.
 3. **Disable its scheduled jobs** if the clone has the Snipe-IT cron entry
@@ -61,7 +63,7 @@ Before using the clone, on `snipeitdev`:
 4. API tokens are copied with the database, so production tokens also work on dev.
    Make the agent user and token on dev; recreate them on production later.
 
-For testing on dev, install on one laptop with `-SnipeUrl http://192.168.1.18/itasset`.
+For testing on dev, install on one laptop with `-SnipeUrl http://192.168.1.35`.
 When you move to production, rerun `Install-Agent.ps1` with the production URL (it
 overwrites the config in place).
 
