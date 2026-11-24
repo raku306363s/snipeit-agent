@@ -56,6 +56,9 @@ Before using the clone, on `snipeitdev`:
    in `/var/www/snipe-it/.env`. Change it to `http://192.168.1.35`, then
    `sudo -u www-data php artisan config:clear`. Otherwise the web UI redirects you to
    production.
+   Production runs on https, so also set `APP_FORCE_TLS=false` (and `SECURE_COOKIES=false`).
+   Otherwise every page redirects to `https://192.168.1.35/...`, which the dev Apache
+   doesn't serve, and the browser shows "refused to connect".
 2. **Stop it emailing real people.** Set `MAIL_MAILER=log` (older versions:
    `MAIL_DRIVER=log`) in `.env`, so checkout/expiry alerts from the copy don't reach staff.
 3. **Disable its scheduled jobs** if the clone has the Snipe-IT cron entry
