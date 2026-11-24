@@ -1,4 +1,7 @@
-config.json
+!packaging/**
 *.log
-inventory.json
+*.pyc
 *.zip
+__pycache__/
+config.json
+inventory.json
